@@ -1,6 +1,6 @@
 ---
 title: "Journal (reproducible report)"
-author: "Joschka Schwarz"
+author: "Jan Reich"
 date: "2020-11-05"
 output:
   html_document:
@@ -13,7 +13,16 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(message=FALSE,warning=FALSE, cache=TRUE)
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	cache = TRUE
+)
+
+# libraries
+library(tidyverse)
+library(dplyr)
+library(lubridate)
 ```
 
 **IMPORTANT:** You can delete everything in here and start fresh. You might want to start by not deleting anything above this line until you know what that stuff is doing.
@@ -26,9 +35,61 @@ Last compiled: `r Sys.Date()`
 
 Notice that whatever you define as a top level header, automatically gets put into the table of contents bar on the left. 
 
-## Second level header
+## Challenge Chapter 2
 
-You can add more headers by adding more hashtags. These won't be put into the table of contents
+For this challenge the bike date is analyzed. The sales are shown by location (state) and also in a second plot together with the information about the year sold.
+
+```{r}
+# load all relevant data into workspace
+
+bikes_tbl <- read_excel(path = "DS_101/00_data/01_bike_sales/01_raw_data/bikes.xlsx")
+orderlines_tbl <- read_excel(path ="DS_101/00_data/01_bike_sales/01_raw_data/orderlines.xlsx")
+bikeshops_tbl <- read_excel(path = "DS_101/00_data/01_bike_sales/01_raw_data/bikeshops.xlsx")
+
+# create data object for analysis
+tbl1 <- orderlines_tbl %>% 
+  left_join(bikes_tbl, by = c("product.id" = "bike.id")) %>%
+  left_join(bikeshops_tbl, by = c("customer.id" = "bikeshop.id"))
+tbl2 <- tbl1 %>%
+  mutate(total.price = price*quantity) %>%
+  select(order.id, contains("order"), contains("model"), price, quantity, total.price, everything()) %>%
+  rename(bikeshop = name) %>%
+  set_names(names(.) %>% str_replace_all("\\.", "_"))
+tbl3 <- tbl2 %>%
+  select(order_date, total_price, location, category) %>%
+  mutate(year = year(order_date)) %>%
+  separate(col = location,
+           into = c("city", "state"),
+           sep = ", ") %>%
+  group_by(year, state) %>%
+  summarize(sales = sum(total_price)) %>%
+  mutate(sales_text = scales::dollar(sales, big.mark = ".",
+                                     decimal.mark = ",",
+                                     prefix = "",
+                                     suffix = " Euro"))
+
+```
+```{r plot, fig.width=10, fig.height=7}
+# Visualize
+tbl3 %>%
+  ggplot(aes(x = year, y = sales, fill = state)) +
+  # Geometry
+  geom_col() +  #geom_col is a bar plot
+  facet_wrap(~ state) +
+  #geom_smooth(method = "lm", se = FALSE) +
+  scale_y_continuous(labels = scales::dollar_format(big.mark = ".",
+                                                    decimal.mark = ",",
+                                                    prefix = "",
+                                                    suffix = " Euro")) +
+  theme(axis.text.x = element_text(angle=90, hjust=1))+
+  labs(
+    title = "Revenue by year and state in Germany",
+    x = "",
+    y = "Revenue"
+  )
+
+```
+The analysis shows that the highest revenue is in North Rhine-Westphalia peaking in 2019 over the 5 Million Euro marker.
 
 ### third level header
 
@@ -52,3 +113,9 @@ hist(samples)
 ```
 
 When you knit this R Markdown document, you will see that the histogram is printed to the page, along with the R code. This document can be set up to hide the R code in the webpage, just delete the comment (hashtag) from the cold folding option in the yaml header up top. For purposes of letting yourself see the code, and me see the code, best to keep it the way that it is. You'll learn that all of these things and more can be customized in each R code block.
+
+```{r, eval = FALSE}
+numbers <- 1:1000
+numbers[100:120]
+hist(sample(numbers, 100, replace=T))
+```
